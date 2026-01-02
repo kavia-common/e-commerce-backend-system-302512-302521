@@ -1,5 +1,5 @@
 import { Pool, type PoolClient } from 'pg';
-import { getEnv, getRequiredEnv } from '../config/env';
+import { getDbRequiredEnv, getEnv } from '../config/env';
 
 /**
  * We create the pool lazily so missing DATABASE_URL does not crash process startup.
@@ -9,7 +9,9 @@ let cachedPool: Pool | null = null;
 
 function getPool(): Pool {
   if (cachedPool) return cachedPool;
-  const { DATABASE_URL } = getRequiredEnv();
+
+  // DB pool should not require JWT_SECRET; only DATABASE_URL.
+  const { DATABASE_URL } = getDbRequiredEnv();
   cachedPool = new Pool({ connectionString: DATABASE_URL });
   return cachedPool;
 }

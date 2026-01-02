@@ -27,6 +27,7 @@ const envSchema = z.object({
 
 type Env = z.infer<typeof envSchema>;
 type RequiredEnv = Env & { DATABASE_URL: string; JWT_SECRET: string };
+type DbRequiredEnv = Env & { DATABASE_URL: string };
 
 let cachedEnv: Env | null = null;
 
@@ -62,4 +63,17 @@ export function getRequiredEnv(): RequiredEnv {
   }
 
   return env as RequiredEnv;
+}
+
+// PUBLIC_INTERFACE
+export function getDbRequiredEnv(): DbRequiredEnv {
+  /** Returns environment variables required for DB-only features. Throws if missing/invalid. */
+  const env = getEnv();
+  if (!env.DATABASE_URL) {
+    throw new Error(
+      `Missing required environment variables: DATABASE_URL. ` +
+        `The service can run without it for /health and /docs, but DB features require it.`
+    );
+  }
+  return env as DbRequiredEnv;
 }
