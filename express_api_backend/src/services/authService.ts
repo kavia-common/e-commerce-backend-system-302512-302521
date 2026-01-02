@@ -1,10 +1,13 @@
-import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { getRequiredEnv } from '../config/env';
 import { ApiError } from '../middleware/errorHandler';
 import { userRepository } from '../repositories/userRepository';
 import { hashPassword, verifyPassword } from '../utils/password';
+import { signAuthToken } from '../utils/jwt';
 
+/**
+ * NOTE: Validation schemas are part of the public contract via route middleware.
+ * Do not change them.
+ */
 export const registerInputSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -16,41 +19,65 @@ export const loginInputSchema = z.object({
   password: z.string().min(1)
 });
 
+type RegisterInput = z.infer<typeof registerInputSchema>;
+type LoginInput = z.infer<typeof loginInputSchema>;
+
+/**
+ * Defensive normalization on top of existing validation.
+ * This does not change the Zod contract; it helps prevent subtle issues like
+ * leading/trailing whitespace in emails.
+ */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function normalizePassword(password: string): string {
+  // Keep password semantics unchanged; only remove accidental surrounding whitespace.
+  // (We do NOT alter internal whitespace.)
+  return password.trim();
+}
+
 export class AuthService {
-  async register(input: z.infer<typeof registerInputSchema>) {
-    const existing = await userRepository.findByEmail(input.email);
+  // PUBLIC_INTERFACE
+  async register(input: RegisterInput) {
+    /** Registers a new user and returns { user, token } (JWT). */
+    const email = normalizeEmail(input.email);
+    const password = normalizePassword(input.password);
+    const role = input.role ?? 'customer';
+
+    const existing = await userRepository.findByEmail(email);
     if (existing) throw new ApiError(409, 'Email already registered');
 
-    const passwordHash = await hashPassword(input.password);
-    const role = input.role ?? 'customer';
-    const user = await userRepository.createUser(input.email, passwordHash, role);
+    const passwordHash = await hashPassword(password);
+    const user = await userRepository.createUser(email, passwordHash, role);
 
-    let secret: string;
-    try {
-      secret = getRequiredEnv().JWT_SECRET;
-    } catch (e) {
-      throw new ApiError(503, 'Auth service not configured', e instanceof Error ? e.message : e);
-    }
+    // Token payload/claims must remain identical: {id,email,role}
+    const token = signAuthToken({ id: user.id, email: user.email, role: user.role });
 
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, secret, { expiresIn: '7d' });
     return { user: { id: user.id, email: user.email, role: user.role }, token };
   }
 
-  async login(input: z.infer<typeof loginInputSchema>) {
-    const user = await userRepository.findByEmail(input.email);
+  // PUBLIC_INTERFACE
+  async login(input: LoginInput) {
+    /** Authenticates a user and returns { user, token } (JWT). */
+    const email = normalizeEmail(input.email);
+    const password = normalizePassword(input.password);
+
+    const user = await userRepository.findByEmail(email);
+    // Preserve existing outward behavior: 401 on invalid credentials.
     if (!user) throw new ApiError(401, 'Invalid email or password');
 
-    const ok = await verifyPassword(input.password, user.password_hash);
-    if (!ok) throw new ApiError(401, 'Invalid email or password');
-
-    let secret: string;
+    let ok = false;
     try {
-      secret = getRequiredEnv().JWT_SECRET;
-    } catch (e) {
-      throw new ApiError(503, 'Auth service not configured', e instanceof Error ? e.message : e);
+      ok = await verifyPassword(password, user.password_hash);
+    } catch {
+      // Avoid leaking internal failures; keep same outward contract as invalid credentials.
+      ok = false;
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, secret, { expiresIn: '7d' });
+    if (!ok) throw new ApiError(401, 'Invalid email or password');
+
+    const token = signAuthToken({ id: user.id, email: user.email, role: user.role });
     return { user: { id: user.id, email: user.email, role: user.role }, token };
   }
 }

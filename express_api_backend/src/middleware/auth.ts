@@ -1,7 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
-import { getRequiredEnv } from '../config/env';
 import { ApiError } from './errorHandler';
+import { verifyAuthToken } from '../utils/jwt';
 
 export type AuthUser = {
   id: string;
@@ -18,38 +17,35 @@ declare global {
   }
 }
 
-// PUBLIC_INTERFACE
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  /** Ensures a valid JWT is present in Authorization header (Bearer). Populates req.user. */
-  const header = req.header('Authorization');
-  if (!header) return next(new ApiError(401, 'Missing Authorization header'));
-
-  const [scheme, token] = header.split(' ');
-  if (scheme !== 'Bearer' || !token) return next(new ApiError(401, 'Invalid Authorization header format'));
-
-  let secret: string;
-  try {
-    secret = getRequiredEnv().JWT_SECRET;
-  } catch (e) {
-    // Misconfigured server: treat as 503 so clients know it's a temporary/unavailable dependency.
-    return next(new ApiError(503, 'Auth service not configured', e instanceof Error ? e.message : e));
-  }
-
-  try {
-    const decoded = jwt.verify(token, secret) as AuthUser;
-    req.user = decoded;
-    return next();
-  } catch {
-    return next(new ApiError(401, 'Invalid or expired token'));
-  }
-}
-
 /**
  * NOTE:
  * This codebase uses two roles: `admin` and `customer`.
  * - Missing/invalid JWT => 401
  * - Authenticated but insufficient role => 403
  */
+
+// PUBLIC_INTERFACE
+export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+  /** Ensures a valid JWT is present in Authorization header (Bearer). Populates req.user. */
+  const header = req.header('Authorization');
+  if (!header) return next(new ApiError(401, 'Missing Authorization header'));
+
+  // Preserve existing behavior: expect "Bearer <token>" with simple split.
+  const [scheme, token] = header.split(' ');
+  if (scheme !== 'Bearer' || !token) return next(new ApiError(401, 'Invalid Authorization header format'));
+
+  try {
+    const decoded = verifyAuthToken(token);
+    req.user = decoded;
+    return next();
+  } catch (e) {
+    // verifyAuthToken throws ApiError(503, ...) if JWT_SECRET missing.
+    if (e instanceof ApiError) return next(e);
+
+    // Preserve existing outward behavior: invalid/expired token => 401
+    return next(new ApiError(401, 'Invalid or expired token'));
+  }
+}
 
 // PUBLIC_INTERFACE
 export function requireRole(roles: AuthUser['role'][]) {
