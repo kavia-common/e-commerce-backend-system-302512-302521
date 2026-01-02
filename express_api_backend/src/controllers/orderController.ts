@@ -8,7 +8,12 @@ export class OrderController {
     /** Express handler: creates a new order for the authenticated user. */
     try {
       if (!req.user) throw new ApiError(401, 'Not authenticated');
-      const order = await orderService.createOrder(req.user.id, req.body);
+
+      const idempotencyKey =
+        (req.header('Idempotency-Key') ?? req.header('X-Request-Id') ?? req.header('Request-Id') ?? undefined) ||
+        undefined;
+
+      const order = await orderService.createOrder(req.user.id, req.body, { idempotencyKey });
       return res.status(201).json(order);
     } catch (e) {
       next(e);

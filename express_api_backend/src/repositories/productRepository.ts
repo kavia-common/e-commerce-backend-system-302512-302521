@@ -78,6 +78,22 @@ export class ProductRepository {
     };
   }
 
+  /**
+   * Decrement stock only if enough inventory is available.
+   * This avoids negative inventory and provides atomicity at the DB statement level.
+   */
+  async decrementStockIfAvailable(productId: string, quantity: number): Promise<boolean> {
+    const r = await pool.query(
+      `
+      UPDATE products
+      SET stock_quantity = stock_quantity - $2, updated_at = NOW()
+      WHERE id = $1 AND stock_quantity >= $2
+      `,
+      [productId, quantity]
+    );
+    return r.rowCount === 1;
+  }
+
   async create(input: Omit<DbProduct, 'id' | 'created_at' | 'updated_at'>): Promise<DbProduct> {
     const r = await pool.query(
       `
