@@ -1,5 +1,5 @@
 import cors from 'cors';
-import express from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import swaggerUi from 'swagger-ui-express';
 const swaggerSpec = require('../swagger');
 
@@ -22,7 +22,7 @@ app.use(
 
 app.set('trust proxy', true);
 
-app.use('/docs', swaggerUi.serve, (req, res, next) => {
+app.use('/docs', swaggerUi.serve, (req: Request, res: Response, next: NextFunction) => {
   const host = req.get('host'); // may or may not include port
   let protocol = req.protocol; // http or https
 
@@ -51,7 +51,7 @@ app.use('/docs', swaggerUi.serve, (req, res, next) => {
 app.use(express.json());
 
 // Serve OpenAPI at /openapi.json for PreviewManager integration
-app.get('/openapi.json', (_req, res) => {
+app.get('/openapi.json', (_req: Request, res: Response) => {
   res.json(swaggerSpec);
 });
 
