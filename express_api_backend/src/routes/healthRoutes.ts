@@ -20,3 +20,8 @@ healthRoutes.get('/', (req, res, next) => healthController.check(req, res, next)
  * (Internally, we keep "/" as the canonical health check to match the generated OpenAPI.)
  */
 healthRoutes.get('/health', (req, res, next) => healthController.check(req, res, next));
+
+/**
+ * Additional alias for platforms that probe /healthz (Kubernetes-style).
+ */
+healthRoutes.get('/healthz', (req, res, next) => healthController.check(req, res, next));
