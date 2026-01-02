@@ -17,7 +17,9 @@ export const updateOrderStatusSchema = z.object({
 });
 
 export class OrderService {
+  // PUBLIC_INTERFACE
   async createOrder(userId: string, input: z.infer<typeof createOrderSchema>) {
+    /** Creates an order for the given user and decrements stock for ordered items. */
     // Load all products and compute totals + validate stock
     const enriched: { productId: string; quantity: number; unitPrice: number }[] = [];
     let total = 0;
@@ -44,15 +46,21 @@ export class OrderService {
     });
   }
 
+  // PUBLIC_INTERFACE
   async listForUser(userId: string) {
+    /** Lists orders belonging to a specific user. */
     return orderRepository.listOrdersForUser(userId);
   }
 
+  // PUBLIC_INTERFACE
   async listAll() {
+    /** Lists all orders (intended for admin use). */
     return orderRepository.listAllOrders();
   }
 
+  // PUBLIC_INTERFACE
   async get(orderId: string, requester: { userId: string; role: 'admin' | 'customer' }) {
+    /** Gets an order (with items) and enforces owner-or-admin authorization. */
     const data = await orderRepository.getOrderWithItems(orderId);
     if (!data) throw new ApiError(404, 'Order not found');
 
@@ -62,7 +70,9 @@ export class OrderService {
     return data;
   }
 
+  // PUBLIC_INTERFACE
   async updateStatus(orderId: string, status: z.infer<typeof updateOrderStatusSchema>['status']) {
+    /** Updates order status (intended for admin use). */
     const updated = await orderRepository.updateStatus(orderId, status);
     if (!updated) throw new ApiError(404, 'Order not found');
     return updated;
