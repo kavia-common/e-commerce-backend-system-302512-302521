@@ -14,3 +14,9 @@ export const healthRoutes = Router();
  *         description: Service health check passed
  */
 healthRoutes.get('/', (req, res, next) => healthController.check(req, res, next));
+
+/**
+ * Alias route for environments that expect a conventional /health endpoint.
+ * (Internally, we keep "/" as the canonical health check to match the generated OpenAPI.)
+ */
+healthRoutes.get('/health', (req, res, next) => healthController.check(req, res, next));

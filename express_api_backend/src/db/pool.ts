@@ -16,13 +16,22 @@ function getPool(): Pool {
 
 /**
  * Proxy to mimic `pg.Pool` surface area that our repositories already use.
- * This keeps call sites unchanged while avoiding eager env validation at import time.
+ *
+ * IMPORTANT:
+ * `pg.Pool#query` has multiple overloads. Attempting to re-type it via rest params
+ * tends to collapse overloads and causes TypeScript compile errors throughout the repo.
+ *
+ * We solve this by returning the underlying pool's bound methods, preserving overloads.
  */
-export const pool = {
+export const pool: Pick<Pool, 'connect' | 'query' | 'end'> = {
   // Connect is used for transactions.
-  connect: async (): Promise<PoolClient> => getPool().connect(),
+  connect: () => getPool().connect(),
+
   // Query is used for regular queries.
-  query: (...args: Parameters<Pool['query']>): ReturnType<Pool['query']> => getPool().query(...(args as [any])),
+  // Bind is important so `this` inside pg's implementation stays correct.
+  query: ((...args: Parameters<Pool['query']>) =>
+    getPool().query(...(args as unknown as Parameters<Pool['query']>))) as Pool['query'],
+
   // Graceful shutdown support if needed.
   end: async (): Promise<void> => {
     if (!cachedPool) return;
@@ -30,7 +39,7 @@ export const pool = {
     cachedPool = null;
     await p.end();
   }
-} satisfies Pick<Pool, 'connect' | 'query' | 'end'>;
+};
 
 /**
  * Lightweight DB connectivity check used by health endpoints.
@@ -44,7 +53,7 @@ export async function dbHealthcheck(): Promise<{ ok: boolean; error?: string }> 
     const { DATABASE_URL } = getEnv();
     if (!DATABASE_URL) return { ok: false, error: 'DATABASE_URL not configured' };
 
-    const client = await pool.connect();
+    const client: PoolClient = await pool.connect();
     try {
       await client.query('SELECT 1');
       return { ok: true };
