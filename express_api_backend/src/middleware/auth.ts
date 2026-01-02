@@ -44,6 +44,13 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   }
 }
 
+/**
+ * NOTE:
+ * This codebase uses two roles: `admin` and `customer`.
+ * - Missing/invalid JWT => 401
+ * - Authenticated but insufficient role => 403
+ */
+
 // PUBLIC_INTERFACE
 export function requireRole(roles: AuthUser['role'][]) {
   /** Ensures authenticated user has one of the allowed roles. */
@@ -52,4 +59,10 @@ export function requireRole(roles: AuthUser['role'][]) {
     if (!roles.includes(req.user.role)) return next(new ApiError(403, 'Forbidden'));
     return next();
   };
+}
+
+// PUBLIC_INTERFACE
+export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
+  /** Ensures the authenticated user is an admin (401 if unauthenticated, 403 if non-admin). */
+  return requireRole(['admin'])(req, _res, next);
 }

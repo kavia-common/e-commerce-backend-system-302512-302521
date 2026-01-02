@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { productController } from '../controllers/productController';
-import { requireAuth, requireRole } from '../middleware/auth';
+import { requireAdmin, requireAuth } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { createProductSchema, updateProductSchema } from '../services/productService';
 
@@ -75,7 +75,7 @@ productRoutes.get('/:id', validate({ params: idParamsSchema }), (req, res, next)
 productRoutes.post(
   '/',
   requireAuth,
-  requireRole(['admin']),
+  requireAdmin,
   validate({ body: createProductSchema }),
   (req, res, next) => productController.create(req, res, next)
 );
@@ -111,7 +111,7 @@ productRoutes.post(
 productRoutes.put(
   '/:id',
   requireAuth,
-  requireRole(['admin']),
+  requireAdmin,
   validate({ params: idParamsSchema, body: updateProductSchema }),
   (req, res, next) => productController.update(req, res, next)
 );
@@ -136,7 +136,7 @@ productRoutes.put(
 productRoutes.delete(
   '/:id',
   requireAuth,
-  requireRole(['admin']),
+  requireAdmin,
   validate({ params: idParamsSchema }),
   (req, res, next) => productController.remove(req, res, next)
 );
