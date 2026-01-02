@@ -42,6 +42,8 @@ export class OrderController {
 
   async updateStatus(req: Request, res: Response, next: NextFunction) {
     try {
+      // Even though the route is admin-protected, keep controller-level defense-in-depth.
+      if (!req.user) throw new ApiError(401, 'Not authenticated');
       const updated = await orderService.updateStatus(req.params.id, req.body.status);
       return res.json(updated);
     } catch (e) {
