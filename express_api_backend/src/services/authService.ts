@@ -1,11 +1,9 @@
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { getEnv } from '../config/env';
+import { getRequiredEnv } from '../config/env';
 import { ApiError } from '../middleware/errorHandler';
 import { userRepository } from '../repositories/userRepository';
 import { hashPassword, verifyPassword } from '../utils/password';
-
-const { JWT_SECRET } = getEnv();
 
 export const registerInputSchema = z.object({
   email: z.string().email(),
@@ -27,7 +25,14 @@ export class AuthService {
     const role = input.role ?? 'customer';
     const user = await userRepository.createUser(input.email, passwordHash, role);
 
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    let secret: string;
+    try {
+      secret = getRequiredEnv().JWT_SECRET;
+    } catch (e) {
+      throw new ApiError(503, 'Auth service not configured', e instanceof Error ? e.message : e);
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, secret, { expiresIn: '7d' });
     return { user: { id: user.id, email: user.email, role: user.role }, token };
   }
 
@@ -38,7 +43,14 @@ export class AuthService {
     const ok = await verifyPassword(input.password, user.password_hash);
     if (!ok) throw new ApiError(401, 'Invalid email or password');
 
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    let secret: string;
+    try {
+      secret = getRequiredEnv().JWT_SECRET;
+    } catch (e) {
+      throw new ApiError(503, 'Auth service not configured', e instanceof Error ? e.message : e);
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, secret, { expiresIn: '7d' });
     return { user: { id: user.id, email: user.email, role: user.role }, token };
   }
 }

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { getEnv } from '../config/env';
+import { getRequiredEnv } from '../config/env';
 import { ApiError } from './errorHandler';
 
 export type AuthUser = {
@@ -18,8 +18,6 @@ declare global {
   }
 }
 
-const { JWT_SECRET } = getEnv();
-
 // PUBLIC_INTERFACE
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   /** Ensures a valid JWT is present in Authorization header (Bearer). Populates req.user. */
@@ -29,8 +27,16 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const [scheme, token] = header.split(' ');
   if (scheme !== 'Bearer' || !token) return next(new ApiError(401, 'Invalid Authorization header format'));
 
+  let secret: string;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
+    secret = getRequiredEnv().JWT_SECRET;
+  } catch (e) {
+    // Misconfigured server: treat as 503 so clients know it's a temporary/unavailable dependency.
+    return next(new ApiError(503, 'Auth service not configured', e instanceof Error ? e.message : e));
+  }
+
+  try {
+    const decoded = jwt.verify(token, secret) as AuthUser;
     req.user = decoded;
     return next();
   } catch {

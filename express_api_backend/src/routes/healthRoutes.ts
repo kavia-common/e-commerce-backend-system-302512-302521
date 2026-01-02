@@ -13,4 +13,4 @@ export const healthRoutes = Router();
  *       200:
  *         description: Service health check passed
  */
-healthRoutes.get('/', (req, res) => healthController.check(req, res));
+healthRoutes.get('/', (req, res, next) => healthController.check(req, res, next));

@@ -1,9 +1,13 @@
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { healthService } from '../services/healthService';
 
 export class HealthController {
-  check(_req: Request, res: Response) {
-    return res.status(200).json(healthService.getStatus());
+  async check(_req: Request, res: Response, next: NextFunction) {
+    try {
+      return res.status(200).json(await healthService.getStatus());
+    } catch (e) {
+      next(e);
+    }
   }
 }
 

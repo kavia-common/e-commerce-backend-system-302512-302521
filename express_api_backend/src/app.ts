@@ -5,9 +5,6 @@ const swaggerSpec = require('../swagger');
 
 import { routes } from './routes';
 import { errorHandler } from './middleware/errorHandler';
-import { getEnv } from './config/env';
-
-getEnv(); // Validate env at boot
 
 // Initialize express app
 export const app = express();

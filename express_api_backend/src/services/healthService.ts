@@ -1,10 +1,17 @@
+import { dbHealthcheck } from '../db/pool';
+
 export class HealthService {
-  getStatus() {
+  async getStatus() {
+    const db = await dbHealthcheck();
+
     return {
       status: 'ok',
       message: 'Service is healthy',
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development'
+      environment: process.env.NODE_ENV || 'development',
+      dependencies: {
+        database: db
+      }
     };
   }
 }
